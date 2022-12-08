@@ -3,19 +3,33 @@
 #include <cstdio>
 #include <cstdlib>
 
-__global__ void matrixMult(const double *A, const double *B, double *C, int column_a, int column_b)
-{
-    int i0 = column_a * (blockDim.y * blockIdx.y + threadIdx.y);
-    int j0 = blockDim.x * blockIdx.x + threadIdx.x;
-    double sum = 0;
+ __global__ void multi_mtrx(const double *A, const double *B, double *C, int col_a, int col_b)
+ {
+    int aBegin = col_a * blockDim.y * blockIdx.y;
+    int aEnd = aBegin + col_a - 1;
+    int aStep = blockDim.x;
+    int bBegin = blockDim.x * blockIdx.x;
+    int bStep = blockDim.y * col_b;
 
-    for (int k = 0; k < column_a; k++)
+    __shared__ double as [16][16];
+    __shared__ double bs [16][16];
+    double sum = 0.0;
+ 
+    for (int ia = aBegin, ib = bBegin; ia < aEnd; ia += aStep, ib += bStep)
     {
-        sum += A[i0 + k] * B[k * column_b + j0];
-    }
-    int ind = column_b * (blockDim.y * blockIdx.y + threadIdx.y) + blockDim.x * blockIdx.x + threadIdx.x;
-    C[ind] = sum;
-}
+        as[threadIdx.y][threadIdx.x] = A[ia + col_a * threadIdx.y + threadIdx.x];
+        bs[threadIdx.y][threadIdx.x] = B[ib + col_b * threadIdx.y + threadIdx.x];
+        __syncthreads();
+        
+        for (int k = 0; k < blockDim.x; k++)
+        {
+            sum += as[threadIdx.y][k] * bs[k][threadIdx.x];
+        }
+        __syncthreads();
+     }
+     int index = col_b * (blockDim.y * blockIdx.y + threadIdx.y) + blockDim.x * blockIdx.x + threadIdx.x;
+     C[index] = sum;
+ }
 
 int mod(int a, int b)
 {
@@ -30,6 +44,8 @@ int mod(int a, int b)
 
 int main()
 {
+    myKernelFunc<<<gridSize, blockSize,
+    sharedMemSize>>>(float *param1, int *param2)
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
@@ -79,7 +95,7 @@ int main()
     dim3 blocksPerGrid = dim3(column_b / 16, row_a / 16);
     
     cudaEventRecord(start, 0);
-    matrixMult<<<blocksPerGrid, threadsPerBlock>>>(d_A, d_B, d_C, column_a, column_b);
+    multi_mtrx<<<blocksPerGrid, threadsPerBlock>>>(d_A, d_B, d_C, column_a, column_b);
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     

@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-__global__ void matrixMult(const double *A, const double *B, double *C, int column_a, int column_b)
+__global__ void multi_mtrx(const double *A, const double *B, double *C, int column_a, int column_b)
 {
     int i0 = column_a * (blockDim.y * blockIdx.y + threadIdx.y);
     int j0 = blockDim.x * blockIdx.x + threadIdx.x;
@@ -79,7 +79,7 @@ int main()
     dim3 blocksPerGrid = dim3(column_b / 16, row_a / 16);
     
     cudaEventRecord(start, 0);
-    matrixMult<<<blocksPerGrid, threadsPerBlock>>>(d_A, d_B, d_C, column_a, column_b);
+    multi_mtrx<<<blocksPerGrid, threadsPerBlock>>>(d_A, d_B, d_C, column_a, column_b);
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     
